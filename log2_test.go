@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
+	_ "embed"
 	"fmt"
-	"log"
+	"io"
 	"math"
 	"math/rand"
 	"testing"
@@ -11,55 +13,61 @@ import (
 	"pgregory.net/rapid"
 )
 
-// searchMaxOKInput searches the max OK input value.
-// It assumes that
-// * f(n-1)=true if f(n)=true
-// * f(n+1)=false if f(n)=false
-// * f(1)=true
-// * f(math.MaxUint64)=false
-func searchMaxOKInput(f func(uint64) uint64, ref func(uint64) uint64) (uint64, error) {
-	okMax := uint64(1)
-	ngMin := uint64(math.MaxUint64)
-	if f(okMax) != ref(okMax) {
-		return 0, fmt.Errorf("assertion failed: f(1) == ref(1), f(1)=%d, ref(1)=%d", f(okMax), ref(okMax))
-	}
-	if f(ngMin) == ref(ngMin) {
-		return 0, fmt.Errorf("assertion failed: f(MaxUint64) == ref(MaxUint64), f(MaxUint64)=%d, ref(MaxUint64)=%d", f(ngMin), ref(ngMin))
-	}
-
-	for okMax < ngMin-1 {
-		x := okMax + (ngMin-okMax)>>1
-		if f(x) == ref(x) {
-			okMax = x
-		} else {
-			ngMin = x
-		}
-	}
-
-	if f(okMax) != ref(okMax) {
-		return 0, fmt.Errorf("assertion failed: f(okMax) == ref(okMax), f(okMax)=%d, ref(okMax)=%d", f(okMax), ref(okMax))
-	}
-	if f(ngMin) == ref(ngMin) {
-		return 0, fmt.Errorf("assertion failed: f(ngMin) != ref(ngMin), f(ngMin)=%d, ref(ngMin)=%d", f(ngMin), ref(ngMin))
-	}
-	return okMax, nil
+func TestILog2(t *testing.T) {
+	checkWithValues(t, ILog2)
 }
 
-func TestSearchMaxOKInput(t *testing.T) {
-	testCases := []struct {
-		f         func(uint64) uint64
-		wantMaxOK uint64
-	}{
-		{f: Log2, wantMaxOK: 0xffffffffffff4bff},
-		{f: Log2ByAvernar, wantMaxOK: 0xffffffffffff4bff},
+func TestILog2B(t *testing.T) {
+	checkWithValues(t, ILog2B)
+}
+
+func TestLog2ByAvernar(t *testing.T) {
+	checkWithValues(t, Log2ByAvernar)
+}
+
+func checkWithValues(t *testing.T, f func(uint64) int64) {
+	for x := uint64(0); x < 100000; x++ {
+		check(t, f, x)
 	}
-	for i, tc := range testCases {
-		got, err := searchMaxOKInput(tc.f, Log2ByStdlib)
-		if err != nil {
-			log.Fatal(err)
+	for i := 1; i < 64; i++ {
+		x := uint64(1) << i
+		check(t, f, x-1)
+		check(t, f, x)
+		check(t, f, x+1)
+	}
+	check(t, f, math.MaxUint64)
+}
+
+func check(t *testing.T, f func(uint64) int64, x uint64) {
+	got := f(x)
+	want := Log2ByStdlib(x)
+	if got != want {
+		t.Errorf("result mismatch, x=%x, got=%d, want=%d", x, got, want)
+	}
+}
+
+//go:embed ilog2_c.txt
+var ilog2CImplOutput []byte
+
+func TestILog2_compareToCImpl(t *testing.T) {
+	r := bytes.NewReader(ilog2CImplOutput)
+	var x uint64
+	var want int64
+	for {
+		n, err := fmt.Fscanf(r, "%d %d\n", &x, &want)
+		if err != nil && err != io.EOF {
+			t.Fatal(err)
 		}
-		if want := tc.wantMaxOK; got != want {
-			t.Errorf("result mismatch, i=%d, got=%d, want=%d", i, got, want)
+		if n == 0 && err == io.EOF {
+			break
+		}
+		if n != 2 {
+			t.Fatalf("unexpected Fscanf count: got=%d, want=2", n)
+		}
+
+		got := ILog2(x)
+		if got != want {
+			t.Errorf("reuslt mismatch, x=%d, got=%d, want=%d", x, got, want)
 		}
 	}
 }
@@ -129,7 +137,7 @@ func TestLog2ByAvernarNotEqual(t *testing.T) {
 		want := Log2ByStdlib(x)
 		if got == want {
 			t.Fatalf("log2 unexpected match, input=%x, got=%d, want=%d", x, got, want)
-		} else {
+			// } else {
 			// t.Logf("log2 expected unmatch, input=%x, got=%d, want=%d", x, got, want)
 		}
 		if x == math.MaxUint64 {
@@ -166,20 +174,30 @@ const dataCount = 1000
 
 var inputValues = buildInputValues(seed, dataCount)
 
-func nop(sum uint64) {}
+func nop(sum int64) {}
 
-func BenchmarkLog2(b *testing.B) {
-	sum := uint64(0)
+func BenchmarkILog2(b *testing.B) {
+	sum := int64(0)
 	for i := 0; i < b.N; i++ {
 		for _, x := range inputValues {
-			sum += Log2(x)
+			sum += ILog2(x)
+		}
+	}
+	nop(sum)
+}
+
+func BenchmarkILog2B(b *testing.B) {
+	sum := int64(0)
+	for i := 0; i < b.N; i++ {
+		for _, x := range inputValues {
+			sum += ILog2B(x)
 		}
 	}
 	nop(sum)
 }
 
 func BenchmarkLogByAvernar(b *testing.B) {
-	sum := uint64(0)
+	sum := int64(0)
 	for i := 0; i < b.N; i++ {
 		for _, x := range inputValues {
 			sum += Log2ByAvernar(x)
@@ -189,7 +207,7 @@ func BenchmarkLogByAvernar(b *testing.B) {
 }
 
 func BenchmarkLogByAvernarU8(b *testing.B) {
-	sum := uint64(0)
+	sum := int64(0)
 	for i := 0; i < b.N; i++ {
 		for _, x := range inputValues {
 			sum += Log2ByAvernarU8(x)
@@ -199,7 +217,7 @@ func BenchmarkLogByAvernarU8(b *testing.B) {
 }
 
 func BenchmarkLogByStdlib(b *testing.B) {
-	sum := uint64(0)
+	sum := int64(0)
 	for i := 0; i < b.N; i++ {
 		for _, x := range inputValues {
 			sum += Log2ByStdlib(x)

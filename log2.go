@@ -2,31 +2,29 @@ package main
 
 import (
 	"math"
+	"math/bits"
 )
 
-var magicTable = []uint64{
-	0, 1, 2, 53, 3, 7, 54, 27, 4, 38, 41, 8, 34, 55, 48, 28,
-	62, 5, 39, 46, 44, 42, 22, 9, 24, 35, 59, 56, 49, 18, 29, 11,
-	63, 52, 6, 26, 37, 40, 33, 47, 61, 45, 43, 21, 23, 58, 17, 10,
-	51, 25, 36, 32, 60, 20, 57, 16, 50, 31, 19, 15, 30, 14, 13, 12,
-}
-
-// Log2 calculates log2 of a uint64 value.
+// ILog2 calculates log2 of a uint64 value.
 // Ported from
-// https://github.com/h2o/h2o/blob/0f08b675c8244fc4552a93e9b35271ecf5e0f8fa/deps/libgkc/gkc.c#L109-L127
-func Log2(x uint64) uint64 {
-	const debruijnMagic = uint64(0x022fdd63cc95386d)
-
-	x |= (x >> 1)
-	x |= (x >> 2)
-	x |= (x >> 4)
-	x |= (x >> 8)
-	x |= (x >> 16)
-	x |= (x >> 32)
-	return (magicTable[((x & ^(x>>1))*debruijnMagic)>>58])
+// https://github.com/h2o/h2o/pull/3177/files
+func ILog2(x uint64) int64 {
+	if x == 0 {
+		return 0
+	}
+	return 63 - int64(bits.LeadingZeros64(x))
 }
 
-var table = []uint64{
+// ILog2B calculates log2 of a uint64 value.
+// Ported from
+// https://twitter.com/herumi/status/1610248792254844929
+func ILog2B(x uint64) int64 {
+	f := float64(x)
+	v := math.Float64bits(f)
+	return int64(v>>52) - 1023
+}
+
+var table = []int64{
 	0, 58, 1, 59, 47, 53, 2, 60, 39, 48, 27, 54, 33, 42, 3, 61,
 	51, 37, 40, 49, 18, 28, 20, 55, 30, 34, 11, 43, 14, 22, 4, 62,
 	57, 46, 52, 38, 26, 32, 41, 50, 36, 17, 19, 29, 10, 13, 21, 56,
@@ -34,7 +32,7 @@ var table = []uint64{
 }
 
 // Ported from https://stackoverflow.com/a/23000588/1391518
-func Log2ByAvernar(n uint64) uint64 {
+func Log2ByAvernar(n uint64) int64 {
 	n |= n >> 1
 	n |= n >> 2
 	n |= n >> 4
@@ -62,16 +60,16 @@ var u8Table = []uint8{
 }
 
 // Ported from https://stackoverflow.com/a/23000588/1391518
-func Log2ByAvernarU8(n uint64) uint64 {
+func Log2ByAvernarU8(n uint64) int64 {
 	n |= n >> 1
 	n |= n >> 2
 	n |= n >> 4
 	n |= n >> 8
 	n |= n >> 16
 	n |= n >> 32
-	return uint64(u8Table[(n*0x03f6eaf2cd271461)>>58])
+	return int64(u8Table[(n*0x03f6eaf2cd271461)>>58])
 }
 
-func Log2ByStdlib(n uint64) uint64 {
-	return uint64(math.Floor(math.Log2(float64(n))))
+func Log2ByStdlib(n uint64) int64 {
+	return int64(math.Log2(float64(n)))
 }
