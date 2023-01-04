@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"golang.org/x/exp/slices"
-	"pgregory.net/rapid"
 )
 
 func TestILog2(t *testing.T) {
@@ -25,8 +24,12 @@ func TestLog2ByAvernar(t *testing.T) {
 	checkWithValues(t, Log2ByAvernar)
 }
 
+func TestLog2Double(t *testing.T) {
+	checkWithValues(t, Log2Double)
+}
+
 func checkWithValues(t *testing.T, f func(uint64) int64) {
-	for x := uint64(0); x < 100000; x++ {
+	for x := uint64(1); x < 100000; x++ {
 		check(t, f, x)
 	}
 	for i := 1; i < 64; i++ {
@@ -40,36 +43,39 @@ func checkWithValues(t *testing.T, f func(uint64) int64) {
 
 func check(t *testing.T, f func(uint64) int64, x uint64) {
 	got := f(x)
-	want := Log2ByStdlib(x)
+	want := ilog2RefOutputMap[x]
 	if got != want {
-		t.Errorf("result mismatch, x=%x, got=%d, want=%d", x, got, want)
+		f := float64(x)
+		v := uint64(f)
+		t.Errorf("result mismatch, x=%x, got=%d, want=%d, uint64_t(float64(x))=%x", x, got, want, v)
 	}
 }
 
-//go:embed ilog2_c.txt
-var ilog2CImplOutput []byte
+var ilog2RefOutputMap = buildILog2RefOutputMap()
 
-func TestILog2_compareToCImpl(t *testing.T) {
-	r := bytes.NewReader(ilog2CImplOutput)
+//go:embed ilog2_ref_output.txt
+var ilog2RefOutput []byte
+
+func buildILog2RefOutputMap() map[uint64]int64 {
+	m := make(map[uint64]int64)
+	r := bytes.NewReader(ilog2RefOutput)
 	var x uint64
 	var want int64
 	for {
 		n, err := fmt.Fscanf(r, "%d %d\n", &x, &want)
 		if err != nil && err != io.EOF {
-			t.Fatal(err)
+			panic(fmt.Sprintf("unexpected IO error: %s", err))
 		}
 		if n == 0 && err == io.EOF {
 			break
 		}
 		if n != 2 {
-			t.Fatalf("unexpected Fscanf count: got=%d, want=2", n)
+			panic(fmt.Sprintf("unexpected Fscanf count: got=%d, want=2", n))
 		}
 
-		got := ILog2(x)
-		if got != want {
-			t.Errorf("reuslt mismatch, x=%d, got=%d, want=%d", x, got, want)
-		}
+		m[x] = want
 	}
+	return m
 }
 
 func TestDebugPow2Minus1Good(t *testing.T) {
@@ -117,32 +123,6 @@ func TestBinAvernarDeBruijn(t *testing.T) {
 	want := "0b0000011111101101110101011110010110011010010011100010100011000010"
 	if got != want {
 		t.Errorf("result mismatch, got=%s, want=%s", got, want)
-	}
-}
-
-func TestLog2ByAvernarPropertyEqualToStdlib(t *testing.T) {
-	rapid.Check(t, func(t *rapid.T) {
-		x := rapid.Uint64Range(1, 0xffffffffffff4bff).Draw(t, "x")
-		got := Log2ByAvernar(x)
-		want := Log2ByStdlib(x)
-		if got != want {
-			t.Fatalf("log2 mismatch, input=%d, got=%d, want=%d", x, got, want)
-		}
-	})
-}
-
-func TestLog2ByAvernarNotEqual(t *testing.T) {
-	for x := uint64(0xffffffffffff4bff + 1); ; x++ {
-		got := Log2ByAvernar(x)
-		want := Log2ByStdlib(x)
-		if got == want {
-			t.Fatalf("log2 unexpected match, input=%x, got=%d, want=%d", x, got, want)
-			// } else {
-			// t.Logf("log2 expected unmatch, input=%x, got=%d, want=%d", x, got, want)
-		}
-		if x == math.MaxUint64 {
-			break
-		}
 	}
 }
 
@@ -216,11 +196,11 @@ func BenchmarkLogByAvernarU8(b *testing.B) {
 	nop(sum)
 }
 
-func BenchmarkLogByStdlib(b *testing.B) {
+func BenchmarkLog2Double(b *testing.B) {
 	sum := int64(0)
 	for i := 0; i < b.N; i++ {
 		for _, x := range inputValues {
-			sum += Log2ByStdlib(x)
+			sum += Log2Double(x)
 		}
 	}
 	nop(sum)

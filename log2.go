@@ -70,6 +70,6 @@ func Log2ByAvernarU8(n uint64) int64 {
 	return int64(u8Table[(n*0x03f6eaf2cd271461)>>58])
 }
 
-func Log2ByStdlib(n uint64) int64 {
+func Log2Double(n uint64) int64 {
 	return int64(math.Log2(float64(n)))
 }
