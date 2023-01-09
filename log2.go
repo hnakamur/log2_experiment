@@ -9,9 +9,6 @@ import (
 // Ported from
 // https://github.com/h2o/h2o/pull/3177/files
 func ILog2(x uint64) int64 {
-	if x == 0 {
-		return 0
-	}
 	return 63 - int64(bits.LeadingZeros64(x))
 }
 
