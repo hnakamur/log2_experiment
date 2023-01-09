@@ -29,7 +29,7 @@ func TestLog2Double(t *testing.T) {
 	checkWithValues(t, Log2Double)
 }
 
-func checkWithValues(t *testing.T, f func(uint64) int64) {
+func checkWithValues(t *testing.T, f func(uint64) int) {
 	for x := uint64(1); x < 100000; x++ {
 		check(t, f, x)
 	}
@@ -42,7 +42,7 @@ func checkWithValues(t *testing.T, f func(uint64) int64) {
 	check(t, f, math.MaxUint64)
 }
 
-func check(t *testing.T, f func(uint64) int64, x uint64) {
+func check(t *testing.T, f func(uint64) int, x uint64) {
 	got := f(x)
 	want := ilog2RefOutputMap[x]
 	if got != want {
@@ -57,11 +57,11 @@ var ilog2RefOutputMap = buildILog2RefOutputMap()
 //go:embed ilog2_ref_output.txt
 var ilog2RefOutput []byte
 
-func buildILog2RefOutputMap() map[uint64]int64 {
-	m := make(map[uint64]int64)
+func buildILog2RefOutputMap() map[uint64]int {
+	m := make(map[uint64]int)
 	r := bytes.NewReader(ilog2RefOutput)
 	var x uint64
-	var want int64
+	var want int
 	for {
 		n, err := fmt.Fscanf(r, "%d %d\n", &x, &want)
 		if err != nil && err != io.EOF {
@@ -163,10 +163,10 @@ const dataCount = 1000
 
 var inputValues = buildInputValues(seed, dataCount)
 
-func nop(sum int64) {}
+func nop(sum int) {}
 
 func BenchmarkILog2(b *testing.B) {
-	sum := int64(0)
+	sum := 0
 	for i := 0; i < b.N; i++ {
 		for _, x := range inputValues {
 			sum += ILog2(x)
@@ -176,7 +176,7 @@ func BenchmarkILog2(b *testing.B) {
 }
 
 func BenchmarkILog2B(b *testing.B) {
-	sum := int64(0)
+	sum := 0
 	for i := 0; i < b.N; i++ {
 		for _, x := range inputValues {
 			sum += ILog2B(x)
@@ -186,7 +186,7 @@ func BenchmarkILog2B(b *testing.B) {
 }
 
 func BenchmarkLogByAvernar(b *testing.B) {
-	sum := int64(0)
+	sum := 0
 	for i := 0; i < b.N; i++ {
 		for _, x := range inputValues {
 			sum += Log2ByAvernar(x)
@@ -196,7 +196,7 @@ func BenchmarkLogByAvernar(b *testing.B) {
 }
 
 func BenchmarkLogByAvernarU8(b *testing.B) {
-	sum := int64(0)
+	sum := 0
 	for i := 0; i < b.N; i++ {
 		for _, x := range inputValues {
 			sum += Log2ByAvernarU8(x)
@@ -206,7 +206,7 @@ func BenchmarkLogByAvernarU8(b *testing.B) {
 }
 
 func BenchmarkLog2Double(b *testing.B) {
-	sum := int64(0)
+	sum := 0
 	for i := 0; i < b.N; i++ {
 		for _, x := range inputValues {
 			sum += Log2Double(x)
