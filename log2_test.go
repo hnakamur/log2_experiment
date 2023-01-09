@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"math/bits"
 	"math/rand"
 	"testing"
 
@@ -131,6 +132,14 @@ func TestBuildTableAvernar(t *testing.T) {
 	want := u8Table
 	if !slices.Equal(got, want) {
 		t.Errorf("table mismatch, got=%v, want=%v", got, want)
+	}
+}
+
+func TestLeadingZeros64Zero(t *testing.T) {
+	got := bits.LeadingZeros64(0)
+	want := 64
+	if got != want {
+		t.Errorf("result mismatch, got=%d, want=%d", got, want)
 	}
 }
 
